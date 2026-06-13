@@ -16,10 +16,18 @@ const { WebSocketServer } = require('ws');
 
 // ---- Config ----
 const args = process.argv.slice(2);
+function getArg(flag, def) {
+  const idx = args.indexOf(flag);
+  if (idx !== -1 && idx + 1 < args.length) {
+    args[idx] = '';  // consume so --port doesn't match --redis-port
+    return args[idx + 1];
+  }
+  return def;
+}
 const config = {
-  httpPort: parseInt(args[args.indexOf('--port') + 1], 10) || 8080,
-  redisHost: args[args.indexOf('--redis-host') + 1] || '127.0.0.1',
-  redisPort: parseInt(args[args.indexOf('--redis-port') + 1], 10) || 6379,
+  httpPort: parseInt(getArg('--port', '8080'), 10),
+  redisHost: getArg('--redis-host', '127.0.0.1'),
+  redisPort: parseInt(getArg('--redis-port', '6379'), 10),
 };
 
 // ---- RESP helpers ----
