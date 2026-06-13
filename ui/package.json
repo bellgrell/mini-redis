@@ -1,0 +1,13 @@
+{
+  "name": "mini-redis-ui",
+  "version": "1.0.0",
+  "description": "Web UI for mini-redis - a C++17 Redis-like server",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "start:server": "node proxy-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

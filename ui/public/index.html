@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mini-redis Web UI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">mini-redis</span>
+        </div>
+        <div class="server-status">
+          <span id="status-indicator" class="status-dot offline"></span>
+          <span id="status-text">Disconnected</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-panel="console" title="Console">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 9.5l2.5 2.5L6 14.5 7.5 16l4-4-4-4L6 9.5zM12 14h5v-2h-5v2z"/></svg>
+          Console
+        </button>
+        <button class="nav-btn" data-panel="browser" title="Key Browser">
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          Keys
+        </button>
+        <button class="nav-btn" data-panel="info" title="Server Info">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          Info
+        </button>
+        <button class="nav-btn" data-panel="monitor" title="Monitor">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+          Monitor
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="connection-info">
+          <span class="label">Target:</span>
+          <span id="redis-target" class="value">loading...</span>
+        </div>
+        <button id="reconnect-btn" class="btn btn-sm" title="Reconnect">
+          🔄 Reconnect
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="main">
+      <!-- Console Panel -->
+      <section id="panel-console" class="panel active">
+        <div class="panel-header">
+          <h2>Console</h2>
+          <div class="panel-actions">
+            <button id="clear-console-btn" class="btn btn-sm">Clear</button>
+          </div>
+        </div>
+        <div id="console-output" class="console-output"></div>
+        <div class="console-input-area">
+          <div class="input-wrapper">
+            <span class="input-prompt">&gt;</span>
+            <input
+              type="text"
+              id="command-input"
+              class="command-input"
+              placeholder="Enter Redis command (e.g. SET key value)..."
+              autofocus
+              spellcheck="false"
+            />
+            <div id="autocomplete-box" class="autocomplete-box hidden"></div>
+          </div>
+          <button id="send-btn" class="btn btn-primary">Send</button>
+        </div>
+      </section>
+
+      <!-- Key Browser Panel -->
+      <section id="panel-browser" class="panel">
+        <div class="panel-header">
+          <h2>Key Browser</h2>
+          <div class="panel-actions">
+            <button id="refresh-keys-btn" class="btn btn-sm">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="key-browser">
+          <div class="search-bar">
+            <input
+              type="text"
+              id="key-search"
+              placeholder="Filter keys..."
+              spellcheck="false"
+            />
+            <select id="key-type-filter">
+              <option value="">All Types</option>
+              <option value="string">String</option>
+              <option value="list">List</option>
+              <option value="set">Set</option>
+              <option value="hash">Hash</option>
+              <option value="zset">ZSet</option>
+            </select>
+          </div>
+          <div id="keys-list" class="keys-list">
+            <div class="empty-state">
+              <p>Click "Refresh" or run <code>KEYS *</code> in Console</p>
+            </div>
+          </div>
+          <div id="key-detail" class="key-detail hidden">
+            <div class="key-detail-header">
+              <h3 id="detail-key-name"></h3>
+              <span id="detail-key-type" class="key-type-badge"></span>
+              <button id="detail-delete-btn" class="btn btn-sm btn-danger">Delete</button>
+            </div>
+            <pre id="detail-value" class="detail-value"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Info Panel -->
+      <section id="panel-info" class="panel">
+        <div class="panel-header">
+          <h2>Server Info</h2>
+          <div class="panel-actions">
+            <button id="refresh-info-btn" class="btn btn-sm">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="info-content" class="info-content">
+          <div class="empty-state">
+            <p>Run <code>INFO</code> in Console or click Refresh</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monitor Panel -->
+      <section id="panel-monitor" class="panel">
+        <div class="panel-header">
+          <h2>Monitor</h2>
+          <div class="panel-actions">
+            <button id="monitor-toggle-btn" class="btn btn-sm btn-primary">Start Monitor</button>
+            <button id="clear-monitor-btn" class="btn btn-sm">Clear</button>
+          </div>
+        </div>
+        <div id="monitor-output" class="monitor-output">
+          <div class="empty-state">
+            <p>Click "Start Monitor" to begin listening to all commands</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
