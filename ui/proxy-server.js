@@ -5,7 +5,12 @@
  * mini-redis TCP server using Redis RESP protocol.
  *
  * Usage:
- *   node proxy-server.js [--port 8080] [--redis-host 127.0.0.1] [--redis-port 6379]
+ *   node proxy-server.js [options]
+ *
+ * Options:
+ *   --port <port>           HTTP/WS server port (default: 8080)
+ *   --redis-host <host>     Redis TCP host (default: 127.0.0.1)
+ *   --redis-port <port>     Redis TCP port (default: 6379)
  */
 
 const fs = require('fs');
@@ -15,19 +20,14 @@ const net = require('net');
 const { WebSocketServer } = require('ws');
 
 // ---- Config ----
-const args = process.argv.slice(2);
-function getArg(flag, def) {
-  const idx = args.indexOf(flag);
-  if (idx !== -1 && idx + 1 < args.length) {
-    args[idx] = '';  // consume so --port doesn't match --redis-port
-    return args[idx + 1];
-  }
-  return def;
+function getArgValue(key, def) {
+  const idx = process.argv.indexOf(key);
+  return idx !== -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : def;
 }
 const config = {
-  httpPort: parseInt(getArg('--port', '8080'), 10),
-  redisHost: getArg('--redis-host', '127.0.0.1'),
-  redisPort: parseInt(getArg('--redis-port', '6379'), 10),
+  httpPort: parseInt(getArgValue('--port', '8080'), 10),
+  redisHost: getArgValue('--redis-host', '127.0.0.1'),
+  redisPort: parseInt(getArgValue('--redis-port', '6379'), 10),
 };
 
 // ---- RESP helpers ----
@@ -42,76 +42,6 @@ function encodeRESP(...parts) {
   return buf;
 }
 
-/** Decode a single RESP response (supports simple string, error, integer, bulk string, array) */
-function decodeRESP(data) {
-  const results = [];
-  let pos = 0;
-
-  function readLine() {
-    const idx = data.indexOf('\r\n', pos);
-    if (idx === -1) return null;
-    const line = data.toString('utf8', pos, idx);
-    pos = idx + 2;
-    return line;
-  }
-
-  function readBulk() {
-    const line = readLine();
-    if (line === null) return { value: null, ok: false };
-    if (line[0] !== '$') return { value: line, ok: true };
-    const len = parseInt(line.slice(1), 10);
-    if (len === -1) return { value: null, ok: true };
-    if (pos + len + 2 > data.length) return { value: null, ok: false };
-    const val = data.toString('utf8', pos, pos + len);
-    pos += len + 2;
-    return { value: val, ok: true };
-  }
-
-  function readValue() {
-    if (pos >= data.length) return { value: null, ok: false };
-    const type = String.fromCharCode(data[pos]);
-    switch (type) {
-      case '+': { // Simple string
-        const line = readLine();
-        return line ? { value: line, ok: true } : { value: null, ok: false };
-      }
-      case '-': { // Error
-        const line = readLine();
-        return line ? { value: { error: line }, ok: true } : { value: null, ok: false };
-      }
-      case ':': { // Integer
-        const line = readLine();
-        return line ? { value: parseInt(line.slice(1), 10), ok: true } : { value: null, ok: false };
-      }
-      case '$': { // Bulk string
-        return readBulk();
-      }
-      case '*': { // Array
-        const line = readLine();
-        if (!line) return { value: null, ok: false };
-        const count = parseInt(line.slice(1), 10);
-        if (count === -1) return { value: null, ok: true };
-        const arr = [];
-        for (let i = 0; i < count; i++) {
-          const r = readValue();
-          if (!r.ok) return { value: null, ok: false };
-          arr.push(r.value);
-        }
-        return { value: arr, ok: true };
-      }
-      default:
-        return { value: null, ok: false };
-    }
-  }
-
-  while (pos < data.length) {
-    const r = readValue();
-    if (!r.ok) break;
-    results.push(r.value);
-  }
-  return results.length === 1 ? results[0] : results;
-}
-
 /** Format RESP response for human-readable display */
 function formatResponse(resp) {
   if (resp === null || resp === undefined) return '(nil)';
@@ -124,7 +54,7 @@ function formatResponse(resp) {
   return String(resp);
 }
 
-// ---- HTTP server (serves static files + WebSocket) ----
+// ---- HTTP server (serves static files + WebSocket + API) ----
 
 const staticDir = path.join(__dirname, 'public');
 
@@ -139,10 +69,34 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-  // API endpoint: health check / connection
-  if (req.url === '/api/status') {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // ---- API Endpoints ----
+
+  // GET /api/status - server and connection status
+  if (req.url === '/api/status' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', redisTarget: `${config.redisHost}:${config.redisPort}` }));
+    res.end(JSON.stringify({
+      status: 'ok',
+      redisTarget: `${config.redisHost}:${config.redisPort}`,
+      uptime: process.uptime(),
+    }));
+    return;
+  }
+
+  // GET /api/commands - full command reference
+  if (req.url === '/api/commands' && req.method === 'GET') {
+    const cmdPath = path.join(__dirname, 'commands.json');
+    fs.readFile(cmdPath, (err, content) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('[]');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(content);
+    });
     return;
   }
 
@@ -150,7 +104,6 @@ const server = http.createServer((req, res) => {
   let filePath = req.url === '/' ? '/index.html' : req.url;
   filePath = path.join(staticDir, filePath);
 
-  // Security: prevent directory traversal
   if (!filePath.startsWith(staticDir)) {
     res.writeHead(403);
     res.end('Forbidden');
@@ -180,8 +133,6 @@ const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
   console.log(`[WS] Client connected`);
-
-  // Each WebSocket connection gets its own TCP connection to mini-redis
   let redisSocket = null;
   let buffer = Buffer.alloc(0);
   let pingTimer = null;
@@ -196,10 +147,7 @@ wss.on('connection', (ws) => {
         resolve(sock);
       });
 
-      sock.on('error', (err) => {
-        reject(err);
-      });
-
+      sock.on('error', (err) => reject(err));
       sock.on('timeout', () => {
         sock.destroy();
         reject(new Error('Connection timeout'));
@@ -209,35 +157,23 @@ wss.on('connection', (ws) => {
     });
   }
 
-  // Send status update to WS client
   function sendStatus(type, data) {
-    try {
-      ws.send(JSON.stringify({ type, ...data }));
-    } catch (_) {}
+    try { ws.send(JSON.stringify({ type, ...data })); } catch (_) {}
   }
 
-  // Attempt initial connection
+  // Initial connection
   (async () => {
     try {
       redisSocket = await connectToRedis();
-
       sendStatus('connected', { host: config.redisHost, port: config.redisPort });
 
-      // Forward data from mini-redis to WS client
       redisSocket.on('data', (chunk) => {
         buffer = Buffer.concat([buffer, chunk]);
-
-        // Try to decode all complete RESP responses
-        let decoded;
-        let consumed = 0;
-
-        // We need to be smarter: decodeRESP reads sequentially, let's use a loop
         let tempBuf = buffer;
         let results = [];
         let parsePos = 0;
 
         while (parsePos < tempBuf.length) {
-          const savedPos = parsePos;
           const view = tempBuf.slice(parsePos);
           let viewPos = 0;
 
@@ -325,7 +261,6 @@ wss.on('connection', (ws) => {
         sendStatus('error', { message: err.message });
       });
 
-      // Keep alive ping
       pingTimer = setInterval(() => {
         if (redisSocket && !redisSocket.destroyed) {
           redisSocket.write(encodeRESP('PING'));
@@ -349,13 +284,11 @@ wss.on('connection', (ws) => {
           return;
         }
 
-        // Parse command string into parts (quoted strings supported)
         const parts = parseCommandLine(msg.command);
         if (parts.length === 0) return;
 
         const respCommand = encodeRESP(...parts);
         redisSocket.write(respCommand);
-        // Echo sent command
         sendStatus('sent', { raw: parts.join(' '), parts });
       }
 
@@ -368,10 +301,7 @@ wss.on('connection', (ws) => {
           try {
             redisSocket = await connectToRedis();
             sendStatus('connected', { host: config.redisHost, port: config.redisPort });
-            // re-attach handlers - simplified, just forward data
-            redisSocket.on('data', (chunk) => {
-              // Forward raw data for reconnection
-            });
+            redisSocket.on('data', () => {});
           } catch (err) {
             sendStatus('error', { message: `Reconnect failed: ${err.message}` });
           }
@@ -391,37 +321,25 @@ wss.on('connection', (ws) => {
   });
 });
 
-// ---- Parse command line into tokens (supports double-quoted strings) ----
+// ---- Parse command line into tokens (supports quoted strings) ----
 function parseCommandLine(line) {
   const parts = [];
   let i = 0;
   let current = '';
-
   while (i < line.length) {
     const c = line[i];
     if (c === '"' || c === "'") {
-      // Quoted string
       const quote = c;
       i++;
       while (i < line.length && line[i] !== quote) {
-        if (line[i] === '\\' && i + 1 < line.length) {
-          i++;
-          current += line[i];
-        } else {
-          current += line[i];
-        }
+        if (line[i] === '\\' && i + 1 < line.length) { i++; current += line[i]; }
+        else { current += line[i]; }
         i++;
       }
-      i++; // skip closing quote
-      if (current) {
-        parts.push(current);
-        current = '';
-      }
+      i++;
+      if (current) { parts.push(current); current = ''; }
     } else if (c === ' ') {
-      if (current) {
-        parts.push(current);
-        current = '';
-      }
+      if (current) { parts.push(current); current = ''; }
       i++;
     } else {
       current += c;

@@ -8,7 +8,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Sidebar -->
+    <!-- ====== Sidebar ====== -->
     <aside id="sidebar">
       <div class="sidebar-header">
         <div class="logo">
@@ -22,21 +22,31 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-btn active" data-panel="console" title="Console">
-          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 9.5l2.5 2.5L6 14.5 7.5 16l4-4-4-4L6 9.5zM12 14h5v-2h-5v2z"/></svg>
-          Console
+        <button class="nav-btn active" data-panel="console" title="Redis Console - Send commands to Redis server">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span>Console</span>
+          <kbd class="shortcut-hint">Ctrl+1</kbd>
         </button>
-        <button class="nav-btn" data-panel="browser" title="Key Browser">
-          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-          Keys
+        <button class="nav-btn" data-panel="browser" title="Key Browser - Browse and manage Redis keys">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Keys</span>
+          <kbd class="shortcut-hint">Ctrl+2</kbd>
         </button>
-        <button class="nav-btn" data-panel="info" title="Server Info">
-          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-          Info
+        <button class="nav-btn" data-panel="info" title="Server Info - View Redis server statistics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>Info</span>
+          <kbd class="shortcut-hint">Ctrl+3</kbd>
         </button>
-        <button class="nav-btn" data-panel="monitor" title="Monitor">
-          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-          Monitor
+        <button class="nav-btn" data-panel="monitor" title="Monitor - Watch live Redis commands in real-time">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>Monitor</span>
+          <kbd class="shortcut-hint">Ctrl+4</kbd>
+        </button>
+        <div class="nav-divider"></div>
+        <button class="nav-btn" data-panel="cheatsheet" title="Command Reference - Browse all Redis commands with syntax and examples">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Cheat Sheet</span>
+          <kbd class="shortcut-hint">Ctrl+5</kbd>
         </button>
       </nav>
 
@@ -45,57 +55,83 @@
           <span class="label">Target:</span>
           <span id="redis-target" class="value">loading...</span>
         </div>
-        <button id="reconnect-btn" class="btn btn-sm" title="Reconnect">
+        <button id="reconnect-btn" class="btn btn-sm" title="Reconnect to Redis server">
           🔄 Reconnect
         </button>
       </div>
     </aside>
 
-    <!-- Main content -->
+    <!-- ====== Main content ====== -->
     <main id="main">
-      <!-- Console Panel -->
+
+      <!-- ====== Console Panel ====== -->
       <section id="panel-console" class="panel active">
         <div class="panel-header">
-          <h2>Console</h2>
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-icon"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <h2>Console</h2>
+            <span class="panel-badge" id="cmd-count">0 commands</span>
+          </div>
           <div class="panel-actions">
-            <button id="clear-console-btn" class="btn btn-sm">Clear</button>
+            <button id="clear-console-btn" class="btn btn-sm btn-warning" title="Clear console output">
+              🗑️ Clear
+            </button>
           </div>
         </div>
         <div id="console-output" class="console-output"></div>
+        <div class="console-status-bar" id="console-status-bar">
+          <span id="console-info" class="console-info-text">Ready — Type a Redis command and press Enter</span>
+          <span class="console-key-hints">
+            <kbd>Tab</kbd> autocomplete · <kbd>↑↓</kbd> history · <kbd>Ctrl+L</kbd> clear
+          </span>
+        </div>
         <div class="console-input-area">
           <div class="input-wrapper">
-            <span class="input-prompt">&gt;</span>
+            <span class="input-prompt">❯</span>
             <input
               type="text"
               id="command-input"
               class="command-input"
-              placeholder="Enter Redis command (e.g. SET key value)..."
+              placeholder="Enter a Redis command (e.g. SET mykey Hello)..."
               autofocus
               spellcheck="false"
+              autocomplete="off"
+              aria-label="Redis Command Input"
             />
             <div id="autocomplete-box" class="autocomplete-box hidden"></div>
           </div>
-          <button id="send-btn" class="btn btn-primary">Send</button>
+          <button id="send-btn" class="btn btn-primary" title="Execute command (Enter)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send
+          </button>
         </div>
       </section>
 
-      <!-- Key Browser Panel -->
+      <!-- ====== Key Browser Panel ====== -->
       <section id="panel-browser" class="panel">
         <div class="panel-header">
-          <h2>Key Browser</h2>
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-icon"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <h2>Key Browser</h2>
+            <span class="panel-badge" id="key-count">0 keys</span>
+          </div>
           <div class="panel-actions">
-            <button id="refresh-keys-btn" class="btn btn-sm">🔄 Refresh</button>
+            <button id="refresh-keys-btn" class="btn btn-sm btn-primary" title="Fetch all keys from Redis server">
+              🔄 Refresh
+            </button>
           </div>
         </div>
         <div id="key-browser">
           <div class="search-bar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input
               type="text"
               id="key-search"
-              placeholder="Filter keys..."
+              placeholder="Filter keys (e.g. user:* or session:*)"
               spellcheck="false"
+              title="Use Redis glob patterns: * = any, ? = single char"
             />
-            <select id="key-type-filter">
+            <select id="key-type-filter" title="Filter by Redis data type">
               <option value="">All Types</option>
               <option value="string">String</option>
               <option value="list">List</option>
@@ -106,52 +142,134 @@
           </div>
           <div id="keys-list" class="keys-list">
             <div class="empty-state">
-              <p>Click "Refresh" or run <code>KEYS *</code> in Console</p>
+              <div class="empty-state-icon">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              </div>
+              <p>Click <strong>Refresh</strong> or run <code>KEYS *</code> in Console</p>
             </div>
           </div>
           <div id="key-detail" class="key-detail hidden">
             <div class="key-detail-header">
-              <h3 id="detail-key-name"></h3>
-              <span id="detail-key-type" class="key-type-badge"></span>
-              <button id="detail-delete-btn" class="btn btn-sm btn-danger">Delete</button>
+              <div class="key-detail-title">
+                <h3 id="detail-key-name">key_name</h3>
+                <span id="detail-key-type" class="key-type-badge">STRING</span>
+              </div>
+              <div class="key-detail-actions">
+                <button id="detail-copy-btn" class="btn btn-sm" title="Copy key value to clipboard">
+                  📋 Copy
+                </button>
+                <button id="detail-delete-btn" class="btn btn-sm btn-danger" title="Delete this key permanently">
+                  🗑️ Delete
+                </button>
+              </div>
+            </div>
+            <div class="detail-meta">
+              <span class="detail-meta-item">
+                <span class="meta-label">TTL:</span>
+                <span class="meta-value" id="detail-ttl-value">∞</span>
+              </span>
+              <span class="detail-meta-item">
+                <span class="meta-label">Type:</span>
+                <span class="meta-value" id="detail-size-value">—</span>
+              </span>
             </div>
             <pre id="detail-value" class="detail-value"></pre>
           </div>
         </div>
       </section>
 
-      <!-- Info Panel -->
+      <!-- ====== Info Panel ====== -->
       <section id="panel-info" class="panel">
         <div class="panel-header">
-          <h2>Server Info</h2>
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <h2>Server Info</h2>
+          </div>
           <div class="panel-actions">
-            <button id="refresh-info-btn" class="btn btn-sm">🔄 Refresh</button>
+            <button id="refresh-info-btn" class="btn btn-sm btn-primary" title="Fetch Redis INFO from server">🔄 Refresh</button>
           </div>
         </div>
         <div id="info-content" class="info-content">
           <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
             <p>Run <code>INFO</code> in Console or click Refresh</p>
           </div>
         </div>
       </section>
 
-      <!-- Monitor Panel -->
+      <!-- ====== Monitor Panel ====== -->
       <section id="panel-monitor" class="panel">
         <div class="panel-header">
-          <h2>Monitor</h2>
-          <div class="panel-actions">
-            <button id="monitor-toggle-btn" class="btn btn-sm btn-primary">Start Monitor</button>
-            <button id="clear-monitor-btn" class="btn btn-sm">Clear</button>
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <h2>Monitor</h2>
+            <span id="monitor-status-badge" class="panel-badge">Inactive</span>
           </div>
+          <div class="panel-actions">
+            <button id="monitor-toggle-btn" class="btn btn-sm btn-primary" title="Start/stop capturing all Redis commands in real-time">
+              ▶️ Start Monitor
+            </button>
+            <button id="clear-monitor-btn" class="btn btn-sm" title="Clear monitor output">
+              🗑️ Clear
+            </button>
+          </div>
+        </div>
+        <div class="monitor-info-bar">
+          <span class="monitor-info-text">Monitor captures all Redis commands sent through this session</span>
+          <span id="monitor-cmd-count" class="monitor-cmd-count">0 commands</span>
         </div>
         <div id="monitor-output" class="monitor-output">
           <div class="empty-state">
-            <p>Click "Start Monitor" to begin listening to all commands</p>
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+            </div>
+            <p>Click <strong>"Start Monitor"</strong> to begin capturing commands</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== Cheat Sheet Panel ====== -->
+      <section id="panel-cheatsheet" class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <h2>Command Reference</h2>
+            <span class="panel-badge">50+ commands</span>
+          </div>
+          <div class="panel-actions">
+            <div class="search-input-wrapper">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="cheatsheet-search" placeholder="Search commands..." spellcheck="false" />
+            </div>
+            <select id="cheatsheet-group-filter">
+              <option value="">All Groups</option>
+              <option value="connection">Connection</option>
+              <option value="strings">Strings</option>
+              <option value="lists">Lists</option>
+              <option value="sets">Sets</option>
+              <option value="hashes">Hashes</option>
+              <option value="sorted-sets">Sorted Sets</option>
+              <option value="generic">Generic</option>
+              <option value="server">Server</option>
+            </select>
+          </div>
+        </div>
+        <div id="cheatsheet-content" class="cheatsheet-content">
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <p>Loading command reference...</p>
           </div>
         </div>
       </section>
     </main>
   </div>
+
+  <!-- ====== Toast Container ====== -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>

@@ -1,77 +1,36 @@
 /**
- * mini-redis Web UI - Main Application
+ * mini-redis Web UI - Enhanced Application
  *
- * Single-page application that connects to the proxy server
- * via WebSocket and communicates with mini-redis.
+ * Features:
+ *  - Redis Console with autocomplete
+ *  - Key Browser with type icons
+ *  - Server Info panel
+ *  - Live Monitor
+ *  - Command Reference (Cheat Sheet)
+ *  - Keyboard shortcuts
+ *  - Toast notifications
+ *  - Copy-to-clipboard
  */
 
 (function () {
   'use strict';
 
   // ============================================================
-  // Redis Commands Reference (for autocomplete)
+  // Data
   // ============================================================
-  const REDIS_COMMANDS = [
-    { cmd: 'PING', args: '', desc: 'Test connection' },
-    { cmd: 'ECHO', args: '<message>', desc: 'Echo a message' },
-    { cmd: 'QUIT', args: '', desc: 'Close connection' },
-    { cmd: 'SET', args: '<key> <value>', desc: 'Set a key-value pair' },
-    { cmd: 'GET', args: '<key>', desc: 'Get value by key' },
-    { cmd: 'DEL', args: '<key> [key...]', desc: 'Delete key(s)' },
-    { cmd: 'EXISTS', args: '<key> [key...]', desc: 'Check if key exists' },
-    { cmd: 'EXPIRE', args: '<key> <seconds>', desc: 'Set key TTL' },
-    { cmd: 'TTL', args: '<key>', desc: 'Get key TTL' },
-    { cmd: 'KEYS', args: '<pattern>', desc: 'Find keys by pattern' },
-    { cmd: 'TYPE', args: '<key>', desc: 'Get key type' },
-    { cmd: 'RENAME', args: '<key> <newkey>', desc: 'Rename a key' },
-    { cmd: 'APPEND', args: '<key> <value>', desc: 'Append to string' },
-    { cmd: 'STRLEN', args: '<key>', desc: 'Get string length' },
-    { cmd: 'INCR', args: '<key>', desc: 'Increment by 1' },
-    { cmd: 'INCRBY', args: '<key> <amount>', desc: 'Increment by amount' },
-    { cmd: 'DECR', args: '<key>', desc: 'Decrement by 1' },
-    { cmd: 'DECRBY', args: '<key> <amount>', desc: 'Decrement by amount' },
-    { cmd: 'GETSET', args: '<key> <value>', desc: 'Set and return old value' },
-    { cmd: 'LPUSH', args: '<key> <val> [val...]', desc: 'Prepend to list' },
-    { cmd: 'RPUSH', args: '<key> <val> [val...]', desc: 'Append to list' },
-    { cmd: 'LPOP', args: '<key>', desc: 'Remove and get first element' },
-    { cmd: 'RPOP', args: '<key>', desc: 'Remove and get last element' },
-    { cmd: 'LLEN', args: '<key>', desc: 'Get list length' },
-    { cmd: 'LRANGE', args: '<key> <start> <stop>', desc: 'Get range of list' },
-    { cmd: 'LINDEX', args: '<key> <index>', desc: 'Get element by index' },
-    { cmd: 'SADD', args: '<key> <mem> [mem...]', desc: 'Add to set' },
-    { cmd: 'SREM', args: '<key> <mem> [mem...]', desc: 'Remove from set' },
-    { cmd: 'SMEMBERS', args: '<key>', desc: 'Get all set members' },
-    { cmd: 'SISMEMBER', args: '<key> <member>', desc: 'Check set membership' },
-    { cmd: 'SCARD', args: '<key>', desc: 'Get set cardinality' },
-    { cmd: 'HSET', args: '<key> <field> <val>', desc: 'Set hash field' },
-    { cmd: 'HGET', args: '<key> <field>', desc: 'Get hash field' },
-    { cmd: 'HGETALL', args: '<key>', desc: 'Get all hash fields' },
-    { cmd: 'HDEL', args: '<key> <field> [field...]', desc: 'Delete hash fields' },
-    { cmd: 'HEXISTS', args: '<key> <field>', desc: 'Check hash field' },
-    { cmd: 'HLEN', args: '<key>', desc: 'Get hash field count' },
-    { cmd: 'HKEYS', args: '<key>', desc: 'Get all hash keys' },
-    { cmd: 'HVALS', args: '<key>', desc: 'Get all hash values' },
-    { cmd: 'ZADD', args: '<key> <score> <member>', desc: 'Add to sorted set' },
-    { cmd: 'ZREM', args: '<key> <member>', desc: 'Remove from sorted set' },
-    { cmd: 'ZRANGE', args: '<key> <start> <stop>', desc: 'Get sorted set range' },
-    { cmd: 'ZCARD', args: '<key>', desc: 'Get sorted set size' },
-    { cmd: 'SELECT', args: '<index>', desc: 'Select database' },
-    { cmd: 'FLUSHDB', args: '', desc: 'Flush current database' },
-    { cmd: 'FLUSHALL', args: '', desc: 'Flush all databases' },
-    { cmd: 'DBSIZE', args: '', desc: 'Get database size' },
-    { cmd: 'INFO', args: '', desc: 'Get server info' },
-    { cmd: 'CONFIG', args: 'GET|SET <param>', desc: 'Get/set config' },
-    { cmd: 'SLAVEOF', args: '<host> <port>', desc: 'Set replication' },
-    { cmd: 'SAVE', args: '', desc: 'Save dataset to disk' },
-    { cmd: 'BGSAVE', args: '', desc: 'Save in background' },
-    { cmd: 'LASTSAVE', args: '', desc: 'Get last save timestamp' },
-    { cmd: 'CLIENT', args: 'LIST|SETNAME|GETNAME', desc: 'Client management' },
-    { cmd: 'SLOWLOG', args: 'GET|LEN|RESET', desc: 'Slow log' },
-    { cmd: 'TIME', args: '', desc: 'Get server time' },
-  ];
+  const COMMAND_GROUPS = {
+    connection:   { label: 'Connection',   icon: '🔗' },
+    strings:      { label: 'Strings',      icon: '📝' },
+    lists:        { label: 'Lists',        icon: '📋' },
+    sets:         { label: 'Sets',         icon: '🎯' },
+    hashes:       { label: 'Hashes',       icon: '🗂️' },
+    'sorted-sets':{ label: 'Sorted Sets',  icon: '🏆' },
+    generic:      { label: 'Generic',      icon: '🔧' },
+    server:       { label: 'Server',       icon: '⚙️' },
+  };
 
   // ============================================================
-  // Application State
+  // State
   // ============================================================
   const state = {
     connected: false,
@@ -82,16 +41,18 @@
     currentPanel: 'console',
     keysCache: [],
     monitorActive: false,
+    monitorCount: 0,
+    commandCount: 0,
+    commands: [],
   };
 
   // ============================================================
   // DOM References
   // ============================================================
   const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => document.querySelectorAll(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   const dom = {
-    // Sidebar
     statusIndicator: $('#status-indicator'),
     statusText: $('#status-text'),
     redisTarget: $('#redis-target'),
@@ -104,6 +65,8 @@
     sendBtn: $('#send-btn'),
     clearConsoleBtn: $('#clear-console-btn'),
     autocompleteBox: $('#autocomplete-box'),
+    consoleInfo: $('#console-info'),
+    cmdCount: $('#cmd-count'),
 
     // Key Browser
     keysList: $('#keys-list'),
@@ -115,6 +78,9 @@
     detailKeyType: $('#detail-key-type'),
     detailValue: $('#detail-value'),
     detailDeleteBtn: $('#detail-delete-btn'),
+    detailCopyBtn: $('#detail-copy-btn'),
+    detailTtl: $('#detail-ttl-value'),
+    keyCount: $('#key-count'),
 
     // Info
     infoContent: $('#info-content'),
@@ -124,10 +90,42 @@
     monitorOutput: $('#monitor-output'),
     monitorToggleBtn: $('#monitor-toggle-btn'),
     clearMonitorBtn: $('#clear-monitor-btn'),
+    monitorStatusBadge: $('#monitor-status-badge'),
+    monitorCmdCount: $('#monitor-cmd-count'),
 
-    // Panels
+    // Cheat Sheet
+    cheatsheetContent: $('#cheatsheet-content'),
+    cheatsheetSearch: $('#cheatsheet-search'),
+    cheatsheetGroupFilter: $('#cheatsheet-group-filter'),
+
+    // Toast
+    toastContainer: $('#toast-container'),
+
     panels: $$('.panel'),
   };
+
+  // ============================================================
+  // Toast Notifications
+  // ============================================================
+  function showToast(message, type, duration) {
+    type = type || 'info';
+    duration = duration || 3000;
+
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+      <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+      <span class="toast-message">${escapeHtml(message)}</span>
+      <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+    `;
+    dom.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
 
   // ============================================================
   // WebSocket Connection
@@ -144,24 +142,25 @@
       state.reconnecting = false;
       updateConnectionStatus(true);
       addConsoleLine('Connected to mini-redis server', 'resp-info');
+      updateConsoleInfo('Connected — Type a command and press Enter');
     };
 
     state.ws.onclose = () => {
       state.connected = false;
       updateConnectionStatus(false);
       addConsoleLine('Disconnected from server', 'resp-info');
-      // Auto-reconnect after 3s
+      updateConsoleInfo('Disconnected — Attempting to reconnect...');
       if (!state.reconnecting) {
         state.reconnecting = true;
-        updateConnectionStatus(false, true);
-        setTimeout(connectWS, 3000);
+        setTimeout(() => {
+          addConsoleLine('Reconnecting...', 'resp-info');
+          connectWS();
+        }, 3000);
       }
     };
 
     state.ws.onerror = () => {
-      if (!state.connected) {
-        updateConnectionStatus(false);
-      }
+      if (!state.connected) updateConnectionStatus(false);
     };
 
     state.ws.onmessage = (event) => {
@@ -181,12 +180,14 @@
         state.reconnecting = false;
         updateConnectionStatus(true);
         addConsoleLine(`Connected to Redis at ${msg.host}:${msg.port}`, 'resp-info');
+        updateConsoleInfo('Connected — Type a command and press Enter');
         break;
 
       case 'disconnected':
         state.connected = false;
         updateConnectionStatus(false);
         addConsoleLine(`Disconnected: ${msg.reason}`, 'resp-info');
+        updateConsoleInfo('Disconnected');
         break;
 
       case 'response':
@@ -194,11 +195,14 @@
         break;
 
       case 'sent':
-        // Command was sent - already echoed in console
+        if (state.monitorActive) {
+          addMonitorLine(msg.raw);
+        }
         break;
 
       case 'error':
-        addConsoleLine(`[Error] ${msg.message}`, 'resp-err');
+        addConsoleLine(`⚠️ ${msg.message}`, 'resp-err');
+        updateConsoleInfo(msg.message);
         break;
     }
   }
@@ -208,15 +212,15 @@
       state.ws.send(JSON.stringify(data));
       return true;
     }
-    addConsoleLine('[Error] Not connected to server', 'resp-err');
+    addConsoleLine('⚠️ Not connected to server', 'resp-err');
     return false;
   }
 
   // ============================================================
   // Connection Status UI
   // ============================================================
-  function updateConnectionStatus(online, reconnecting) {
-    if (reconnecting) {
+  function updateConnectionStatus(online) {
+    if (state.reconnecting) {
       dom.statusIndicator.className = 'status-dot reconnecting';
       dom.statusText.textContent = 'Reconnecting...';
     } else if (online) {
@@ -231,29 +235,20 @@
   // ============================================================
   // Console
   // ============================================================
-  function addConsoleLine(text, className, rawValue) {
+  function updateConsoleInfo(text) {
+    dom.consoleInfo.textContent = text;
+  }
+
+  function addConsoleLine(text, className) {
     const line = document.createElement('div');
     line.className = `console-line ${className || ''}`;
-    if (rawValue && typeof rawValue === 'object') {
-      line.textContent = text;
-    } else {
-      line.innerHTML = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
+    line.innerHTML = escapeHtml(text);
     dom.consoleOutput.appendChild(line);
     dom.consoleOutput.scrollTop = dom.consoleOutput.scrollHeight;
     return line;
   }
 
   function handleRedisResponse(msg) {
-    if (state.currentPanel === 'monitor' && state.monitorActive) {
-      const time = new Date().toLocaleTimeString();
-      const line = document.createElement('div');
-      line.className = 'monitor-line';
-      line.innerHTML = `<span class="time">[${time}]</span> <span class="cmd-text">${escapeHtml(msg.formatted)}</span>`;
-      dom.monitorOutput.appendChild(line);
-      dom.monitorOutput.scrollTop = dom.monitorOutput.scrollHeight;
-    }
-
     const raw = msg.raw;
     if (raw === null) {
       addConsoleLine('(nil)', 'resp-nil');
@@ -264,9 +259,8 @@
         addConsoleLine('(empty array)', 'resp-nil');
       } else {
         for (let i = 0; i < raw.length; i++) {
-          const prefix = `${i + 1}) `;
           const val = formatDisplayValue(raw[i]);
-          addConsoleLine(prefix + val, 'resp-ok');
+          addConsoleLine(`  ${i + 1}) ${val}`, 'resp-ok');
         }
       }
     } else if (typeof raw === 'number') {
@@ -286,18 +280,46 @@
     cmdText = cmdText.trim();
     if (!cmdText) return;
 
-    // Add to history
     state.commandHistory.push(cmdText);
-    if (state.commandHistory.length > 500) {
-      state.commandHistory.shift();
-    }
+    if (state.commandHistory.length > 500) state.commandHistory.shift();
     state.historyIndex = state.commandHistory.length;
 
-    // Echo command
     addConsoleLine(cmdText, 'cmd');
+    state.commandCount++;
+    dom.cmdCount.textContent = `${state.commandCount} commands`;
 
-    // Send via WS
     sendWS({ type: 'command', command: cmdText });
+  }
+
+  // ============================================================
+  // Monitor
+  // ============================================================
+  function addMonitorLine(cmd) {
+    const time = new Date().toLocaleTimeString();
+    const line = document.createElement('div');
+    line.className = 'monitor-line';
+    line.innerHTML = `<span class="time">[${time}]</span> <span class="cmd-text">${escapeHtml(cmd)}</span>`;
+    dom.monitorOutput.appendChild(line);
+    dom.monitorOutput.scrollTop = dom.monitorOutput.scrollHeight;
+
+    state.monitorCount++;
+    dom.monitorCmdCount.textContent = `${state.monitorCount} commands`;
+  }
+
+  function toggleMonitor() {
+    state.monitorActive = !state.monitorActive;
+    dom.monitorToggleBtn.textContent = state.monitorActive ? '⏹️ Stop Monitor' : '▶️ Start Monitor';
+    dom.monitorToggleBtn.className = state.monitorActive ? 'btn btn-sm btn-danger' : 'btn btn-sm btn-primary';
+    dom.monitorStatusBadge.textContent = state.monitorActive ? 'Active' : 'Inactive';
+
+    if (state.monitorActive) {
+      addConsoleLine('Monitor started — capturing all commands', 'resp-info');
+      dom.monitorOutput.innerHTML = '';
+      state.monitorCount = 0;
+      dom.monitorCmdCount.textContent = '0 commands';
+    } else {
+      addConsoleLine('Monitor stopped', 'resp-info');
+    }
   }
 
   // ============================================================
@@ -306,7 +328,9 @@
   function getCommandSuggestions(partial) {
     if (!partial) return [];
     const upper = partial.toUpperCase();
-    return REDIS_COMMANDS.filter(c => c.cmd.startsWith(upper)).slice(0, 8);
+    const exact = state.commands.filter(c => c.cmd.toUpperCase() === upper);
+    const starts = state.commands.filter(c => c.cmd.toUpperCase().startsWith(upper) && c.cmd.toUpperCase() !== upper);
+    return [...exact, ...starts].slice(0, 8);
   }
 
   function showAutocomplete(suggestions) {
@@ -315,11 +339,15 @@
       return;
     }
 
-    dom.autocompleteBox.innerHTML = suggestions.map((s, i) =>
-      `<div class="autocomplete-item ${i === 0 ? 'selected' : ''}" data-cmd="${s.cmd}">${
-        s.cmd
-      } <span class="cmd-desc">${escapeHtml(s.args)} — ${escapeHtml(s.desc)}</span></div>`
-    ).join('');
+    dom.autocompleteBox.innerHTML = suggestions.map((s, i) => {
+      const groupInfo = COMMAND_GROUPS[s.group] || { label: s.group };
+      return `<div class="autocomplete-item ${i === 0 ? 'selected' : ''}" data-cmd="${s.cmd}">
+        <span class="cmd-name">${s.cmd}</span>
+        <span class="cmd-args">${escapeHtml(s.args)}</span>
+        <span class="cmd-group-badge">${groupInfo.label}</span>
+        <span class="cmd-desc">${escapeHtml(s.desc)}</span>
+      </div>`;
+    }).join('');
     dom.autocompleteBox.classList.remove('hidden');
   }
 
@@ -338,13 +366,12 @@
   // ============================================================
   function loadKeys(pattern) {
     pattern = pattern || '*';
-    if (!state.connected) return;
-
+    if (!state.connected) {
+      showToast('Not connected to Redis', 'error');
+      return;
+    }
     addConsoleLine(`KEYS ${pattern}`, 'cmd');
     sendWS({ type: 'command', command: `KEYS ${pattern}` });
-
-    // Also load key types
-    // We'll use the response handler approach
   }
 
   function renderKeys(keys) {
@@ -353,13 +380,14 @@
 
     if (!keys || keys.length === 0) {
       dom.keysList.innerHTML = '<div class="empty-state"><p>No keys found</p></div>';
+      dom.keyCount.textContent = '0 keys';
       return;
     }
 
-    // Get types for each key
+    dom.keyCount.textContent = `${keys.length} keys`;
+
     keys.forEach((key, index) => {
       const item = document.createElement('div');
-      // We don't know the type yet, let's query type for each
       item.className = 'key-item';
       item.dataset.key = key;
       item.innerHTML = `
@@ -370,189 +398,154 @@
       item.addEventListener('click', () => selectKey(key, item));
       dom.keysList.appendChild(item);
 
-      // Deferred type loading
-      setTimeout(() => queryKeyInfo(key, item), index * 50);
+      // Load type and TTL asynchronously
+      setTimeout(() => queryKeyInfo(key, item), index * 30);
     });
   }
 
   function queryKeyInfo(key, itemEl) {
     if (!state.connected) return;
 
-    // We can't use WS properly for this because responses are serial
-    // Instead we'll use an indirect approach - store callbacks
-    // For simplicity, let's use a staging approach
-    const stagingId = 'staging_' + Date.now() + '_' + Math.random();
-    window.__keyStaging = window.__keyStaging || {};
-    window.__keyStaging[stagingId] = { key, itemEl, stage: 'type' };
-
-    // Replace sendWS temporarily
+    // Get key type
+    state._staging = state._staging || { queue: [] };
+    state._staging.queue.push({ key, itemEl, stage: 'type' });
     sendWS({ type: 'command', command: `TYPE ${key}` });
-    // The response will be handled by the key staging system
   }
 
-  // Override response handling to capture key info queries
-  const _origHandle = handleRedisResponse;
-  handleRedisResponse = function(msg) {
-    // Check if this is a staged response
-    if (window.__keyStaging) {
-      const keys = Object.keys(window.__keyStaging);
-      if (keys.length > 0) {
-        const stagingId = keys[0];
-        const stage = window.__keyStaging[stagingId];
-        delete window.__keyStaging[stagingId];
-
-        if (stage.stage === 'type') {
-          const keyType = msg.raw && typeof msg.raw === 'string' ? msg.raw.toLowerCase() : 'string';
-          const icon = stage.itemEl.querySelector('.key-icon');
-          icon.className = `key-icon type-${keyType}`;
-          icon.textContent = keyType[0]?.toUpperCase() || '?';
-
-          // Now queue the TTL query
-          const ttlId = 'staging_ttl_' + Date.now();
-          window.__keyStaging[ttlId] = { key: stage.key, itemEl: stage.itemEl, stage: 'ttl' };
-          sendWS({ type: 'command', command: `TTL ${stage.key}` });
-          return;
-        }
-
-        if (stage.stage === 'ttl') {
-          const ttl = msg.raw;
-          const ttlEl = stage.itemEl.querySelector('.key-ttl');
-          if (ttl === -1 || ttl === null) {
-            ttlEl.textContent = '∞';
-          } else if (ttl === -2) {
-            ttlEl.textContent = 'del';
-          } else {
-            ttlEl.textContent = `${ttl}s`;
-          }
-          return;
-        }
-      }
-    }
-
-    // Default: pass to original handler
-    _origHandle.call(this, msg);
-  };
-
   function selectKey(key, itemEl) {
-    // Remove selection from others
     dom.keysList.querySelectorAll('.key-item.selected').forEach(el => el.classList.remove('selected'));
     if (itemEl) itemEl.classList.add('selected');
 
     dom.detailKeyName.textContent = key;
     dom.keyDetail.classList.remove('hidden');
+    dom.detailValue.textContent = 'Loading...';
 
-    // Get type
+    state._detailQuery = { key, stage: 'type' };
     sendWS({ type: 'command', command: `TYPE ${key}` });
-    // Get value based on type - handle in response
-    window.__detailQuery = { key, stage: 'type' };
   }
-
-  // Override response for detail too
-  handleRedisResponse = (function(orig) {
-    return function(msg) {
-      if (window.__detailQuery) {
-        const q = window.__detailQuery;
-        if (q.stage === 'type') {
-          const type = msg.raw && typeof msg.raw === 'string' ? msg.raw.toLowerCase() : 'string';
-          dom.detailKeyType.textContent = type.toUpperCase();
-          dom.detailKeyType.className = `key-type-badge ${type}`;
-
-          // Query value based on type
-          q.stage = 'value';
-          if (type === 'string') {
-            sendWS({ type: 'command', command: `GET ${q.key}` });
-          } else if (type === 'list') {
-            sendWS({ type: 'command', command: `LRANGE ${q.key} 0 -1` });
-          } else if (type === 'set') {
-            sendWS({ type: 'command', command: `SMEMBERS ${q.key}` });
-          } else if (type === 'hash') {
-            sendWS({ type: 'command', command: `HGETALL ${q.key}` });
-          } else if (type === 'zset') {
-            sendWS({ type: 'command', command: `ZRANGE ${q.key} 0 -1 WITHSCORES` });
-          } else {
-            dom.detailValue.textContent = '(unknown type)';
-            delete window.__detailQuery;
-          }
-          return;
-        }
-        if (q.stage === 'value') {
-          dom.detailValue.textContent = formatDisplayValue(msg.raw);
-          delete window.__detailQuery;
-          return;
-        }
-      }
-
-      orig.call(this, msg);
-    };
-  })(handleRedisResponse || _origHandle);
-
-  // Also handle staging in the new wrapper
-  (function() {
-    const _handleResp = handleRedisResponse;
-
-    // We need to add staging interceptor wrapped around the original
-    const actualHandler = handleRedisResponse;
-    handleRedisResponse = function(msg) {
-      // Staging interceptor
-      if (window.__keyStaging) {
-        const keys = Object.keys(window.__keyStaging);
-        if (keys.length > 0) {
-          const stagingId = keys[0];
-          const stage = window.__keyStaging[stagingId];
-          delete window.__keyStaging[stagingId];
-
-          if (stage.stage === 'type') {
-            const keyType = msg.raw && typeof msg.raw === 'string' ? msg.raw.toLowerCase() : 'string';
-            const icon = stage.itemEl.querySelector('.key-icon');
-            icon.className = `key-icon type-${keyType}`;
-            icon.textContent = keyType[0]?.toUpperCase() || '?';
-            const ttlId = 'staging_ttl_' + Date.now() + '_' + Math.random();
-            window.__keyStaging[ttlId] = { key: stage.key, itemEl: stage.itemEl, stage: 'ttl' };
-            sendWS({ type: 'command', command: `TTL ${stage.key}` });
-            return;
-          }
-
-          if (stage.stage === 'ttl') {
-            const ttl = msg.raw;
-            const ttlEl = stage.itemEl.querySelector('.key-ttl');
-            if (ttl === -1 || ttl === null) {
-              ttlEl.textContent = '∞';
-            } else if (ttl === -2) {
-              ttlEl.textContent = 'del';
-            } else {
-              ttlEl.textContent = `${ttl}s`;
-            }
-            return;
-          }
-        }
-      }
-
-      actualHandler(msg);
-    };
-  })();
 
   // ============================================================
   // Info Panel
   // ============================================================
   function loadInfo() {
-    if (!state.connected) return;
+    if (!state.connected) {
+      showToast('Not connected to Redis', 'error');
+      return;
+    }
     addConsoleLine('INFO', 'cmd');
     sendWS({ type: 'command', command: 'INFO' });
   }
 
   // ============================================================
-  // Monitor
+  // Cheat Sheet
   // ============================================================
-  function toggleMonitor() {
-    state.monitorActive = !state.monitorActive;
-    dom.monitorToggleBtn.textContent = state.monitorActive ? 'Stop Monitor' : 'Start Monitor';
-    dom.monitorToggleBtn.className = state.monitorActive ? 'btn btn-sm btn-danger' : 'btn btn-sm btn-primary';
+  function renderCheatSheet(commands) {
+    if (!commands || commands.length === 0) {
+      dom.cheatsheetContent.innerHTML = '<div class="empty-state"><p>No commands loaded</p></div>';
+      return;
+    }
 
-    if (state.monitorActive) {
-      addConsoleLine('Monitor started — all commands will be shown', 'resp-info');
-      // In real Redis you'd use MONITOR command, but for this UI we just show all traffic
-    } else {
-      addConsoleLine('Monitor stopped', 'resp-info');
+    const filter = dom.cheatsheetGroupFilter.value;
+    const search = dom.cheatsheetSearch.value.toLowerCase().trim();
+
+    let filtered = commands;
+    if (filter) {
+      filtered = filtered.filter(c => c.group === filter);
+    }
+    if (search) {
+      filtered = filtered.filter(c =>
+        c.cmd.toLowerCase().includes(search) ||
+        c.desc.toLowerCase().includes(search) ||
+        (c.group && c.group.toLowerCase().includes(search))
+      );
+    }
+
+    // Group by command group
+    const grouped = {};
+    filtered.forEach(c => {
+      const group = c.group || 'other';
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(c);
+    });
+
+    let html = '';
+    const groupOrder = ['connection', 'generic', 'strings', 'lists', 'sets', 'hashes', 'sorted-sets', 'server'];
+    const shownGroups = Object.keys(grouped).sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b));
+
+    for (const groupName of shownGroups) {
+      const groupCmds = grouped[groupName];
+      const groupInfo = COMMAND_GROUPS[groupName] || { label: groupName, icon: '📦' };
+
+      html += `<div class="cheatsheet-group">
+        <div class="cheatsheet-group-title">${groupInfo.icon} ${groupInfo.label} <span class="group-count">${groupCmds.length} commands</span></div>`;
+
+      groupCmds.forEach(c => {
+        const syntax = c.syntax || `${c.cmd} ${c.args}`;
+        html += `<div class="cheatsheet-card">
+          <span class="cmd-badge">${c.cmd}</span>
+          <div class="cmd-info">
+            <div class="cmd-syntax">${escapeHtml(syntax).replace(/&lt;([^&]+)&gt;/g, '<span class="arg">≤$1≥</span>')}</div>
+            <div class="cmd-desc">${escapeHtml(c.desc)}</div>
+            ${c.example ? `<span class="cmd-example">${escapeHtml(c.example)}</span>` : ''}
+          </div>
+        </div>`;
+      });
+
+      html += '</div>';
+    }
+
+    dom.cheatsheetContent.innerHTML = html || '<div class="empty-state"><p>No commands match the current filter</p></div>';
+  }
+
+  // ============================================================
+  // Keyboard Shortcuts
+  // ============================================================
+  function setupKeyboardShortcuts() {
+    const panelMap = { '1': 'console', '2': 'browser', '3': 'info', '4': 'monitor', '5': 'cheatsheet' };
+
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+1-5 = switch panels
+      if (e.ctrlKey && panelMap[e.key]) {
+        e.preventDefault();
+        switchPanel(panelMap[e.key]);
+      }
+
+      // Ctrl+L = clear console
+      if (e.ctrlKey && e.key === 'l') {
+        e.preventDefault();
+        if (state.currentPanel === 'console') {
+          dom.consoleOutput.innerHTML = '';
+        }
+      }
+
+      // Escape = close key detail / autocomplete
+      if (e.key === 'Escape') {
+        if (!dom.keyDetail.classList.contains('hidden') && state.currentPanel === 'browser') {
+          dom.keyDetail.classList.add('hidden');
+        }
+        hideAutocomplete();
+      }
+    });
+  }
+
+  // ============================================================
+  // Panel Navigation
+  // ============================================================
+  function switchPanel(panelName) {
+    dom.navBtns.forEach(b => b.classList.remove('active'));
+    dom.panels.forEach(p => p.classList.remove('active'));
+
+    const targetNav = dom.navBtns.find(b => b.dataset.panel === panelName);
+    if (targetNav) targetNav.classList.add('active');
+
+    const targetPanel = document.getElementById(`panel-${panelName}`);
+    if (targetPanel) targetPanel.classList.add('active');
+
+    state.currentPanel = panelName;
+
+    // Focus input when switching to console
+    if (panelName === 'console') {
+      dom.commandInput.focus();
     }
   }
 
@@ -565,9 +558,110 @@
     return div.innerHTML;
   }
 
-  function getSelectedKeyType() {
-    return dom.keyTypeFilter.value;
+  function copyToClipboard(text) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard', 'success', 1500);
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
   }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('Copied to clipboard', 'success', 1500);
+    } catch (e) {
+      showToast('Failed to copy', 'error');
+    }
+    document.body.removeChild(ta);
+  }
+
+  // ============================================================
+  // Response Interceptors (key staging + detail queries)
+  // ============================================================
+
+  // Override the onmessage-level handler to intercept type/ttl queries
+  const _origHandle = handleWSMessage;
+  handleWSMessage = function(msg) {
+    if (msg.type === 'response') {
+      // Key staging: resolve queued TYPE queries
+      if (state._staging && state._staging.queue && state._staging.queue.length > 0) {
+        const item = state._staging.queue.shift();
+        if (item.stage === 'type') {
+          const keyType = msg.raw && typeof msg.raw === 'string' ? msg.raw.toLowerCase() : 'string';
+          const icon = item.itemEl.querySelector('.key-icon');
+          icon.className = `key-icon type-${keyType}`;
+          icon.textContent = keyType[0]?.toUpperCase() || '?';
+
+          // Queue TTL query
+          state._staging.queue.push({ key: item.key, itemEl: item.itemEl, stage: 'ttl' });
+          sendWS({ type: 'command', command: `TTL ${item.key}` });
+          return;
+        }
+        if (item.stage === 'ttl') {
+          const ttl = msg.raw;
+          const ttlEl = item.itemEl.querySelector('.key-ttl');
+          if (ttl === -1 || ttl === null) ttlEl.textContent = '∞';
+          else if (ttl === -2) ttlEl.textContent = 'del';
+          else ttlEl.textContent = `${ttl}s`;
+          return;
+        }
+      }
+
+      // Detail query: resolve selected key info
+      if (state._detailQuery) {
+        const q = state._detailQuery;
+        if (q.stage === 'type') {
+          const type = msg.raw && typeof msg.raw === 'string' ? msg.raw.toLowerCase() : 'string';
+          dom.detailKeyType.textContent = type.toUpperCase();
+          dom.detailKeyType.className = `key-type-badge ${type}`;
+
+          q.stage = 'value';
+          q.type = type;
+
+          // Query TTL + value
+          state._queryTtl = true;
+          sendWS({ type: 'command', command: `TTL ${q.key}` });
+
+          if (type === 'string') sendWS({ type: 'command', command: `GET ${q.key}` });
+          else if (type === 'list') sendWS({ type: 'command', command: `LRANGE ${q.key} 0 -1` });
+          else if (type === 'set') sendWS({ type: 'command', command: `SMEMBERS ${q.key}` });
+          else if (type === 'hash') sendWS({ type: 'command', command: `HGETALL ${q.key}` });
+          else if (type === 'zset') sendWS({ type: 'command', command: `ZRANGE ${q.key} 0 -1 WITHSCORES` });
+          else {
+            dom.detailValue.textContent = '(unknown type)';
+            delete state._detailQuery;
+          }
+          return;
+        }
+        if (q.stage === 'value') {
+          dom.detailValue.textContent = formatDisplayValue(msg.raw);
+          delete state._detailQuery;
+          return;
+        }
+      }
+
+      // Detail TTL query
+      if (state._queryTtl) {
+        const ttl = msg.raw;
+        dom.detailTtl.textContent = (ttl === -1 || ttl === null) ? '∞' : (ttl === -2 ? 'Deleted' : `${ttl}s`);
+        delete state._queryTtl;
+        return;
+      }
+    }
+
+    _origHandle(msg);
+  };
 
   // ============================================================
   // Event Handlers
@@ -576,30 +670,32 @@
   // --- Navigation ---
   dom.navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const panel = btn.dataset.panel;
-      dom.navBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      dom.panels.forEach(p => p.classList.remove('active'));
-      const target = document.getElementById(`panel-${panel}`);
-      if (target) target.classList.add('active');
-      state.currentPanel = panel;
+      switchPanel(btn.dataset.panel);
     });
   });
 
-  // --- Send Command ---
+  // --- Footer License / Reconnect buttons ---
+  dom.reconnectBtn.addEventListener('click', () => {
+    if (state.ws) state.ws.close();
+    addConsoleLine('Reconnecting...', 'resp-info');
+    setTimeout(connectWS, 500);
+  });
+
+  // --- Console ---
   dom.sendBtn.addEventListener('click', () => {
     executeCommand(dom.commandInput.value);
     dom.commandInput.value = '';
     hideAutocomplete();
+    dom.commandInput.focus();
   });
 
   dom.commandInput.addEventListener('keydown', (e) => {
     const input = dom.commandInput;
-    const suggestions = getCommandSuggestions(input.value.split(' ')[0]);
+    const firstWord = input.value.split(' ')[0];
+    const suggestions = getCommandSuggestions(firstWord);
 
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Check if autocomplete is open
       if (!dom.autocompleteBox.classList.contains('hidden')) {
         const selected = dom.autocompleteBox.querySelector('.selected');
         if (selected) {
@@ -616,42 +712,28 @@
       e.preventDefault();
       if (!dom.autocompleteBox.classList.contains('hidden')) {
         const selected = dom.autocompleteBox.querySelector('.selected');
-        if (selected) {
-          applyAutocomplete(selected.dataset.cmd);
-        }
+        if (selected) applyAutocomplete(selected.dataset.cmd);
       }
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (!dom.autocompleteBox.classList.contains('hidden')) {
-        const items = dom.autocompleteBox.querySelectorAll('.autocomplete-item');
-        const selected = dom.autocompleteBox.querySelector('.selected');
-        let idx = -1;
-        items.forEach((item, i) => { if (item === selected) idx = i; });
-        if (idx > 0) {
-          items[idx].classList.remove('selected');
-          items[idx - 1].classList.add('selected');
-        }
+        cycleAutocomplete(-1);
         return;
       }
       if (state.historyIndex > 0) {
         state.historyIndex--;
         input.value = state.commandHistory[state.historyIndex];
+        // Move cursor to end
+        setTimeout(() => { input.selectionStart = input.selectionEnd = input.value.length; }, 0);
       }
     }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (!dom.autocompleteBox.classList.contains('hidden')) {
-        const items = dom.autocompleteBox.querySelectorAll('.autocomplete-item');
-        const selected = dom.autocompleteBox.querySelector('.selected');
-        let idx = -1;
-        items.forEach((item, i) => { if (item === selected) idx = i; });
-        if (idx < items.length - 1) {
-          items[idx].classList.remove('selected');
-          items[idx + 1].classList.add('selected');
-        }
+        cycleAutocomplete(1);
         return;
       }
       if (state.historyIndex < state.commandHistory.length - 1) {
@@ -668,11 +750,34 @@
     }
   });
 
+  function cycleAutocomplete(dir) {
+    const items = dom.autocompleteBox.querySelectorAll('.autocomplete-item');
+    const selected = dom.autocompleteBox.querySelector('.selected');
+    let idx = -1;
+    items.forEach((item, i) => { if (item === selected) idx = i; });
+    const next = idx + dir;
+    if (next >= 0 && next < items.length) {
+      if (selected) selected.classList.remove('selected');
+      items[next].classList.add('selected');
+      items[next].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
   dom.commandInput.addEventListener('input', () => {
     const val = dom.commandInput.value;
     const firstWord = val.split(' ')[0];
     const suggestions = getCommandSuggestions(firstWord);
     showAutocomplete(suggestions);
+  });
+
+  dom.commandInput.addEventListener('blur', () => {
+    setTimeout(hideAutocomplete, 200);
+  });
+
+  // Autocomplete item click
+  dom.autocompleteBox.addEventListener('click', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item) applyAutocomplete(item.dataset.cmd);
   });
 
   // Click outside autocomplete
@@ -682,26 +787,11 @@
     }
   });
 
-  // Autocomplete item click
-  dom.autocompleteBox.addEventListener('click', (e) => {
-    const item = e.target.closest('.autocomplete-item');
-    if (item) {
-      applyAutocomplete(item.dataset.cmd);
-    }
-  });
-
   // --- Clear Console ---
   dom.clearConsoleBtn.addEventListener('click', () => {
     dom.consoleOutput.innerHTML = '';
-  });
-
-  // --- Reconnect ---
-  dom.reconnectBtn.addEventListener('click', () => {
-    if (state.ws) {
-      state.ws.close();
-    }
-    addConsoleLine('Reconnecting...', 'resp-info');
-    setTimeout(connectWS, 500);
+    state.commandCount = 0;
+    dom.cmdCount.textContent = '0 commands';
   });
 
   // --- Key Browser ---
@@ -721,18 +811,38 @@
   // --- Monitor ---
   dom.monitorToggleBtn.addEventListener('click', toggleMonitor);
   dom.clearMonitorBtn.addEventListener('click', () => {
-    dom.monitorOutput.innerHTML = '<div class="empty-state"><p>Monitor cleared</p></div>';
+    dom.monitorOutput.innerHTML = '';
+    state.monitorCount = 0;
+    dom.monitorCmdCount.textContent = '0 commands';
   });
 
   // --- Delete Key ---
   dom.detailDeleteBtn.addEventListener('click', () => {
     const key = dom.detailKeyName.textContent;
-    if (key && confirm(`Delete key "${key}"?`)) {
+    if (key && confirm(`⚠️ Delete key "${key}"? This cannot be undone.`)) {
       addConsoleLine(`DEL ${key}`, 'cmd');
       sendWS({ type: 'command', command: `DEL ${key}` });
       dom.keyDetail.classList.add('hidden');
       loadKeys(dom.keySearch.value || '*');
+      showToast(`Deleted key: ${key}`, 'success');
     }
+  });
+
+  // --- Copy Key Value ---
+  dom.detailCopyBtn.addEventListener('click', () => {
+    const value = dom.detailValue.textContent;
+    if (value && value !== 'Loading...') {
+      copyToClipboard(value);
+    }
+  });
+
+  // --- Cheat Sheet ---
+  dom.cheatsheetSearch.addEventListener('input', () => {
+    renderCheatSheet(state.commands);
+  });
+
+  dom.cheatsheetGroupFilter.addEventListener('change', () => {
+    renderCheatSheet(state.commands);
   });
 
   // ============================================================
@@ -742,7 +852,7 @@
     // Initialize connection info
     dom.redisTarget.textContent = 'loading...';
 
-    // Fetch server status
+    // Fetch server status and commands
     fetch('/api/status')
       .then(r => r.json())
       .then(data => {
@@ -752,8 +862,38 @@
         dom.redisTarget.textContent = 'unknown';
       });
 
+    // Load command reference
+    fetch('/api/commands')
+      .then(r => r.json())
+      .then(commands => {
+        state.commands = commands;
+        renderCheatSheet(commands);
+      })
+      .catch(() => {
+        // Fallback to built-in commands
+        state.commands = [
+          { cmd: 'PING', args: '', desc: 'Test connection', group: 'connection', syntax: 'PING', example: 'PING' },
+          { cmd: 'SET', args: '<key> <value>', desc: 'Set a key-value pair', group: 'strings', syntax: 'SET <key> <value>', example: 'SET mykey Hello' },
+          { cmd: 'GET', args: '<key>', desc: 'Get value by key', group: 'strings', syntax: 'GET <key>', example: 'GET mykey' },
+          { cmd: 'DEL', args: '<key> [key...]', desc: 'Delete key(s)', group: 'generic', syntax: 'DEL <key> [key ...]', example: 'DEL mykey' },
+          { cmd: 'KEYS', args: '<pattern>', desc: 'Find keys by pattern', group: 'generic', syntax: 'KEYS <pattern>', example: 'KEYS *' },
+          { cmd: 'INFO', args: '', desc: 'Get server info', group: 'server', syntax: 'INFO', example: 'INFO' },
+          { cmd: 'DBSIZE', args: '', desc: 'Get number of keys', group: 'server', syntax: 'DBSIZE', example: 'DBSIZE' },
+          { cmd: 'TYPE', args: '<key>', desc: 'Get key type', group: 'generic', syntax: 'TYPE <key>', example: 'TYPE mykey' },
+          { cmd: 'TTL', args: '<key>', desc: 'Get key TTL', group: 'generic', syntax: 'TTL <key>', example: 'TTL mykey' },
+          { cmd: 'EXISTS', args: '<key>', desc: 'Check if key exists', group: 'generic', syntax: 'EXISTS <key>', example: 'EXISTS mykey' },
+          { cmd: 'INCR', args: '<key>', desc: 'Increment by 1', group: 'strings', syntax: 'INCR <key>', example: 'INCR counter' },
+          { cmd: 'FLUSHDB', args: '', desc: 'Flush current database', group: 'server', syntax: 'FLUSHDB', example: 'FLUSHDB' },
+        ];
+        renderCheatSheet(state.commands);
+        showToast('Could not load full command reference', 'error');
+      });
+
     // Connect WebSocket
     connectWS();
+
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts();
 
     // Focus input
     dom.commandInput.focus();
