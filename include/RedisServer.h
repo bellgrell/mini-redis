@@ -15,6 +15,8 @@ class RedisServer{
         int port;
         int server_scoket;
         std::atomic<bool> running;
+        //setup the handling for graceful shutdown
+        void setupSignalHandlers();
 };
 
 #endif

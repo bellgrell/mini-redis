@@ -1,0 +1,26 @@
+# Build output
+redis_server
+obj/
+build/
+*.o
+*.out
+
+# Persistence data
+dump.my_rdb
+
+# IDE
+.vscode/
+.qtcreator/
+*.pro.user
+*.pro.user.*
+
+# Qt generated
+ui_*.h
+moc_*.cpp
+qrc_*.cpp
+moc_predefs.h
+.qmake.stash
+
+# OS
+.DS_Store
+Thumbs.db
